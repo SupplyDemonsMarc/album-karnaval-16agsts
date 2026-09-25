@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#040807">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>R EXPLOITZ</title>
+<style>
+  :root{
+    --void:#040807;
+    --panel:#0a1710;
+    --panel-2:#0d1f14;
+    --moss:#1f4a2f;
+    --leaf:#4c9a5f;
+    --leaf-bright:#8fe0a0;
+    --mist:#d7ecdd;
+    --mist-dim:#7f9c8a;
+    --amber:#c9903f;
+    --amber-dim:#7a5a2b;
+    --line:rgba(143,224,160,0.16);
+    --glass:rgba(15,32,21,0.55);
+    --shadow:0 20px 60px rgba(0,0,0,0.55);
+    --ease:cubic-bezier(.22,.9,.3,1);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overscroll-behavior:none;}
+  body{
+    background:
+      radial-gradient(1200px 800px at 50% -10%, rgba(76,154,95,0.10), transparent 60%),
+      radial-gradient(900px 700px at 90% 110%, rgba(201,144,63,0.06), transparent 55%),
+      var(--void);
+    color:var(--mist);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    min-height:100dvh;
+    overflow:hidden;
+    position:fixed;
+    inset:0;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+
+  button{
+    font-family:inherit;
+    border:none;
+    background:none;
+    color:inherit;
+    cursor:pointer;
+    touch-action:manipulation;
+  }
+
+  /* ---------- ambient texture ---------- */
+  #grid{
+    position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:
+      linear-gradient(rgba(143,224,160,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(143,224,160,0.035) 1px, transparent 1px);
+    background-size:34px 34px;
+    mask-image:radial-gradient(120% 80% at 50% 20%, black 10%, transparent 75%);
+  }
+  #scan{
+    position:fixed;left:0;right:0;height:120px;pointer-events:none;z-index:2;
+    background:linear-gradient(180deg, transparent, rgba(143,224,160,0.05), transparent);
+    animation:scan 7s linear infinite;
+  }
+  @keyframes scan{
+    0%{ top:-120px; }
+    100%{ top:100%; }
+  }
+  #vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:3;
+    box-shadow:inset 0 0 160px rgba(0,0,0,0.75);
+  }
+  body.flash #vignette{ background:rgba(143,224,160,0.10); }
+
+  /* ---------- layout screens ---------- */
+  .screen{
+    position:fixed;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:max(24px, env(safe-area-inset-top)) 22px max(24px, env(safe-area-inset-bottom));
+    opacity:0;visibility:hidden;pointer-events:none;
+    transform:translateY(10px);
+    transition:opacity .5s var(--ease), transform .5s var(--ease);
+    z-index:5;
+  }
+  .screen.active{
+    opacity:1;visibility:visible;pointer-events:auto;
+    transform:translateY(0);
+  }
+
+  /* ---------- logo ---------- */
+  .logo-mark{ display:block; }
+  .logo-mark svg{ display:block; }
+  .logo-mark .frond{ fill:var(--leaf); }
+  .logo-mark .frond:nth-child(2){ fill:var(--leaf-bright); opacity:.85; }
+  .logo-mark .frond:nth-child(3){ fill:var(--moss); opacity:.9; }
+  .logo-mark .stroke-r{ stroke:var(--leaf-bright); stroke-width:6.5; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+
+  .wordmark{
+    font-weight:700;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--mist);
+    text-indent:0.28em; /* balance letter-spacing on the right edge */
+  }
+  .wordmark b{ color:var(--leaf-bright); font-weight:700; }
+
+  /* ---------- BOOT ---------- */
+  #boot{ gap:26px; }
+  #boot .logo-mark{ width:76px; height:76px; opacity:0; animation:rise .9s var(--ease) forwards .15s; }
+  #boot .wordmark{ font-size:15px; opacity:0; animation:rise .9s var(--ease) forwards .35s; }
+  #boot .boot-sub{
+    font-size:11.5px; color:var(--mist-dim); letter-spacing:0.14em;
+    font-family:'Courier New',monospace;
+    opacity:0; animation:rise .9s var(--ease) forwards .5s;
+    min-height:16px;
+  }
+  @keyframes rise{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  .meter{
+    width:min(240px, 60vw); height:2px; background:var(--moss); border-radius:2px; overflow:hidden;
+    opacity:0; animation:rise .9s var(--ease) forwards .65s;
+  }
+  .meter i{
+    display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--leaf), var(--leaf-bright));
+    transition:width .12s linear;
+  }
+  .boot-hint{
+    position:absolute; bottom:max(30px, env(safe-area-inset-bottom)); font-size:10.5px;
+    color:var(--mist-dim); letter-spacing:0.12em; opacity:0; animation:rise .9s var(--ease) forwards 1.4s;
+  }
+
+  /* ---------- MAIN ---------- */
+  #main{ gap:34px; text-align:center; }
+  #main .logo-mark{ width:88px; height:88px; }
+  .brand-block{ display:flex; flex-direction:column; align-items:center; gap:16px; }
+  .wordmark--lg{ font-size:19px; }
+  .tagline{
+    max-width:280px; font-size:13.5px; line-height:1.7; color:var(--mist-dim);
+    letter-spacing:0.01em;
+  }
+
+  .btn-start{
+    position:relative; padding:17px 46px; border-radius:3px;
+    background:var(--glass);
+    border:1px solid var(--line);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    font-size:13.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--mist);
+    box-shadow:var(--shadow);
+    transition:transform .18s var(--ease), border-color .18s, background .18s;
+  }
+  .btn-start:active{ transform:scale(.96); background:rgba(15,32,21,0.8); border-color:rgba(143,224,160,0.4); }
+  .btn-start::before{
+    content:"";position:absolute;inset:0;border-radius:3px;padding:1px;
+    background:linear-gradient(135deg, rgba(143,224,160,0.5), transparent 40%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    pointer-events:none;
+  }
+
+  .footer-credit{
+    position:absolute; bottom:max(22px, env(safe-area-inset-bottom)); font-size:10px;
+    color:var(--mist-dim); letter-spacing:0.14em;
+  }
+  .footer-credit b{ color:var(--leaf); }
+
+  /* ---------- SEQUENCE ---------- */
+  #sequence{ justify-content:flex-start; padding-top:max(64px, calc(env(safe-area-inset-top) + 40px)); gap:18px; }
+  .seq-head{ display:flex; align-items:center; gap:10px; }
+  .seq-head .logo-mark{ width:26px; height:26px; }
+  .seq-head span{ font-size:11px; letter-spacing:0.18em; color:var(--mist-dim); text-transform:uppercase; }
+
+  .term{
+    width:100%; max-width:520px; flex:1; min-height:0;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:16px 16px;
+    font-family:'Courier New', monospace;
+    font-size:12.5px; line-height:1.85;
+    color:var(--leaf-bright);
+    overflow-y:auto;
+    box-shadow:inset 0 0 40px rgba(0,0,0,0.4);
+  }
+  .term::-webkit-scrollbar{ width:0; }
+  .term .ln{ white-space:pre-wrap; word-break:break-word; }
+  .term .ln.dim{ color:var(--mist-dim); }
+  .cursor{
+    display:inline-block; width:6px; height:12px; background:var(--leaf-bright);
+    margin-left:2px; vertical-align:-2px;
+    animation:blink 1s step-start infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  .track-wrap{ width:100%; max-width:520px; }
+  .track{ height:2px; background:var(--moss); border-radius:2px; overflow:hidden; }
+  .track i{ display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--leaf), var(--leaf-bright)); transition:width .25s var(--ease); }
+  .track-label{ display:flex; justify-content:space-between; margin-top:8px; font-size:10px; letter-spacing:0.1em; color:var(--mist-dim); }
+
+  /* ---------- MODAL ---------- */
+  #modal{
+    position:fixed; inset:0; z-index:20;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(2,6,4,0.7);
+    opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity .35s var(--ease);
+    padding:24px;
+  }
+  #modal.active{ opacity:1; visibility:visible; pointer-events:auto; }
+  .modal-card{
+    width:100%; max-width:340px;
+    background:var(--panel-2);
+    border:1px solid rgba(201,144,63,0.35);
+    border-radius:5px;
+    padding:26px 22px;
+    text-align:center;
+    box-shadow:var(--shadow);
+    transform:scale(.94); transition:transform .35s var(--ease);
+  }
+  #modal.active .modal-card{ transform:scale(1); }
+  .modal-icon{ margin:0 auto 14px; width:34px; height:34px; }
+  .modal-title{ font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:var(--amber); margin-bottom:10px; }
+  .modal-body{ font-size:12.5px; line-height:1.7; color:var(--mist-dim); margin-bottom:22px; }
+  .btn-modal{
+    width:100%; padding:13px; border-radius:3px;
+    background:rgba(201,144,63,0.12); border:1px solid rgba(201,144,63,0.4);
+    font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:var(--amber);
+    transition:transform .16s var(--ease), background .16s;
+  }
+  .btn-modal:active{ transform:scale(.96); background:rgba(201,144,63,0.22); }
+
+  /* ---------- REVEAL ---------- */
+  #reveal{ gap:22px; text-align:center; }
+  #reveal .logo-mark{ width:60px; height:60px; margin-bottom:4px; }
+  .glitch-title{
+    position:relative; font-size:27px; font-weight:700; letter-spacing:0.06em;
+    text-transform:uppercase; color:var(--mist);
+  }
+  .glitch-title::before, .glitch-title::after{
+    content:attr(data-text); position:absolute; left:0; top:0; width:100%;
+    clip-path:inset(0 0 0 0);
+  }
+  .glitch-title::before{ color:var(--leaf-bright); animation:glitchA 2.6s infinite; opacity:.7; }
+  .glitch-title::after{ color:var(--amber); animation:glitchB 2.6s infinite; opacity:.6; }
+  @keyframes glitchA{
+    0%,92%,100%{ transform:translate(0,0); clip-path:inset(0 0 0 0); }
+    93%{ transform:translate(-2px,0); clip-path:inset(10% 0 60% 0); }
+    95%{ transform:translate(2px,0); clip-path:inset(60% 0 5% 0); }
+    97%{ transform:translate(-1px,0); clip-path:inset(30% 0 40% 0); }
+  }
+  @keyframes glitchB{
+    0%,92%,100%{ transform:translate(0,0); clip-path:inset(0 0 0 0); }
+    93%{ transform:translate(2px,0); clip-path:inset(50% 0 15% 0); }
+    95%{ transform:translate(-2px,0); clip-path:inset(5% 0 70% 0); }
+    97%{ transform:translate(1px,0); clip-path:inset(35% 0 35% 0); }
+  }
+  .reveal-body{ max-width:290px; font-size:13px; line-height:1.75; color:var(--mist-dim); }
+  .reveal-body b{ color:var(--leaf-bright); }
+  .reveal-actions{ display:flex; gap:12px; margin-top:6px; }
+  .btn-ghost{
+    padding:13px 22px; border-radius:3px; border:1px solid var(--line);
+    font-size:11.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--mist-dim);
+    transition:transform .16s var(--ease), color .16s, border-color .16s;
+  }
+  .btn-ghost:active{ transform:scale(.96); color:var(--mist); border-color:rgba(143,224,160,0.4); }
+  .btn-ghost.primary{ color:var(--leaf-bright); border-color:rgba(143,224,160,0.35); }
+
+  /* screen shake for flash transition */
+  body.shake .screen.active{ animation:shake .32s var(--ease); }
+  @keyframes shake{
+    10%{ transform:translate(-6px,0); } 30%{ transform:translate(5px,0); }
+    50%{ transform:translate(-4px,0); } 70%{ transform:translate(3px,0); }
+    90%{ transform:translate(-2px,0); } 100%{ transform:translate(0,0); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="grid"></div>
+  <div id="scan"></div>
+  <div id="vignette"></div>
+
+  <!-- BOOT -->
+  <section id="boot" class="screen active">
+    <div class="logo-mark" data-logo></div>
+    <div class="wordmark boot-word">R <b>EXPLOITZ</b></div>
+    <div class="boot-sub" id="bootSub">MENGINISIALISASI&nbsp;&nbsp;&nbsp;0%</div>
+    <div class="meter"><i id="bootBar"></i></div>
+    <div class="boot-hint">ketuk layar untuk melewati</div>
+  </section>
+
+  <!-- MAIN -->
+  <section id="main" class="screen">
+    <div class="brand-block">
+      <div class="logo-mark" data-logo></div>
+      <div class="wordmark wordmark--lg">R <b>EXPLOITZ</b></div>
+      <p class="tagline">PESAN CREATOR.web ini dibuat oleh siswa🌴.</p>
+    </div>
+    <button class="btn-start" id="btnStart">Mulai Akses</button>
+    <div class="footer-credit">dirancang oleh <b>R EXPLOITZ</b></div>
+  </section>
+
+  <!-- SEQUENCE -->
+  <section id="sequence" class="screen">
+    <div class="seq-head">
+      <div class="logo-mark" data-logo></div>
+      <span>R Exploitz — Akses Sistem</span>
+    </div>
+    <div class="term" id="term"></div>
+    <div class="track-wrap">
+      <div class="track"><i id="seqBar"></i></div>
+      <div class="track-label"><span id="seqPct">0%</span><span>PROSES</span></div>
+    </div>
+  </section>
+
+  <!-- REVEAL -->
+  <section id="reveal" class="screen">
+    <div class="logo-mark" data-logo></div>
+    <h1 class="glitch-title" data-text="SUKSES MENGINSTAL VIRUS DARI HANDPONE ANDA">KENA JEBAK</h1>
+    <p class="reveal-body">Tenang — tidak ada yang benar-benar diakses. Ini cuma jebakan iseng dari <b>R EXPLOITZ</b>, dibuat khusus untukmu.</p>
+    <div class="reveal-actions">
+      <button class="btn-ghost primary" id="btnAgain">Ulangi</button>
+      <button class="btn-ghost" id="btnClose">Tutup</button>
+    </div>
+  </section>
+
+  <!-- MODAL -->
+  <div id="modal">
+    <div class="modal-card">
+      <svg class="modal-icon" viewBox="0 0 40 40" fill="none">
+        <path d="M20 5 L36 33 H4 Z" stroke="#c9903f" stroke-width="2.4" stroke-linejoin="round"/>
+        <line x1="20" y1="16" x2="20" y2="24" stroke="#c9903f" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="20" cy="28.5" r="1.6" fill="#c9903f"/>
+      </svg>
+      <div class="modal-title">Akses Tidak Wajar</div>
+      <div class="modal-body">Sistem mendeteksi aktivitas tidak biasa pada perangkat ini. Lanjutkan proses?</div>
+      <button class="btn-modal" id="btnProceed">Lanjutkan</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- logo (monogram R + daun sawit) ---------- */
+  var LOGO = '\
+  <svg viewBox="0 0 120 120" width="100%" height="100%">\
+    <g transform="translate(58,48)">\
+      <path class="frond" transform="rotate(-72) translate(0,-6)" d="M0,0 C-9,-14 -7,-30 0,-38 C7,-30 9,-14 0,0 Z"></path>\
+      <path class="frond" transform="rotate(-38) translate(0,-6)" d="M0,0 C-9,-14 -7,-30 0,-38 C7,-30 9,-14 0,0 Z"></path>\
+      <path class="frond" transform="rotate(-4) translate(0,-6)" d="M0,0 C-9,-14 -7,-30 0,-38 C7,-30 9,-14 0,0 Z"></path>\
+    </g>\
+    <path class="stroke-r" d="M42,92 L42,26 M42,26 C42,18 52,17 60,17 C74,17 79,25 79,34 C79,46 66,51 60,51 L42,51 M58,51 L84,92"></path>\
+  </svg>';
+  document.querySelectorAll('[data-logo]').forEach(function(el){ el.innerHTML = LOGO; });
+
+  /* ---------- screen switching ---------- */
+  var screens = {
+    boot: document.getElementById('boot'),
+    main: document.getElementById('main'),
+    sequence: document.getElementById('sequence'),
+    reveal: document.getElementById('reveal')
+  };
+  function show(name){
+    Object.keys(screens).forEach(function(k){ screens[k].classList.toggle('active', k === name); });
+  }
+
+  /* ---------- audio (Web Audio, tanpa file eksternal) ---------- */
+  var actx = null;
+  function ac(){
+    if(!actx){
+      var C = window.AudioContext || window.webkitAudioContext;
+      if(C) actx = new C();
+    }
+    if(actx && actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function beep(freq, dur, type, vol){
+    var ctx = ac(); if(!ctx) return;
+    var t0 = ctx.currentTime;
+    var osc = ctx.createOscillator();
+    var g = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vol || 0.06, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur || 0.08));
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + (dur || 0.08) + 0.02);
+  }
+  function tick(){ beep(1400 + Math.random()*300, 0.02, 'square', 0.02); }
+  function chime(rising){
+    beep(rising ? 520 : 300, 0.12, 'sine', 0.07);
+    setTimeout(function(){ beep(rising ? 780 : 220, 0.16, 'sine', 0.06); }, 110);
+  }
+  function alarm(){ beep(880, 0.14, 'sawtooth', 0.05); setTimeout(function(){ beep(660,0.14,'sawtooth',0.05); }, 160); }
+  function vibrate(pattern){ try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){} }
+
+  /* ---------- BOOT sequence ---------- */
+  var bootBar = document.getElementById('bootBar');
+  var bootSub = document.getElementById('bootSub');
+  var bootDone = false;
+  var bootPct = 0;
+  var bootTimer = null;
+
+  function bootStep(){
+    bootPct += 3 + Math.random()*7;
+    if(bootPct >= 100){ bootPct = 100; }
+    bootBar.style.width = bootPct + '%';
+    bootSub.textContent = 'MENGINISIALISASI   ' + Math.floor(bootPct) + '%';
+    if(bootPct >= 100){
+      clearInterval(bootTimer);
+      setTimeout(finishBoot, 260);
+    }
+  }
+  bootTimer = setInterval(bootStep, 90);
+
+  function finishBoot(){
+    if(bootDone) return;
+    bootDone = true;
+    clearInterval(bootTimer);
+    show('main');
+  }
+  document.getElementById('boot').addEventListener('click', finishBoot);
+
+  /* ---------- MAIN -> start ---------- */
+  document.getElementById('btnStart').addEventListener('click', function(){
+    ac();
+    chime(true);
+    vibrate(12);
+    show('sequence');
+    runSequence();
+  });
+
+  /* ---------- SEQUENCE: typewriter terminal ---------- */
+  var LINES = [
+    'inisialisasi modul R EXPLOITZ ...',
+    'wkwk gimana webnya pasti pada kena prank😹~R',
+    'hahaha soryy ye, skrg webya udah gue ubah...',
+    'btw webnya udh smpe mana?~R',
+    'haha skrg webnya udh garing karna dah lama~R...',
+    'next kita buat kejutan lagi ~R ...',
+    '<copyright> LamtimCyber👾🤖~R...'
+  ];
+  var termEl = document.getElementById('term');
+  var seqBar = document.getElementById('seqBar');
+  var seqPct = document.getElementById('seqPct');
+  var seqRunning = false;
+
+  function runSequence(){
+    termEl.innerHTML = '';
+    seqBar.style.width = '0%';
+    seqPct.textContent = '0%';
+    seqRunning = true;
+    var li = 0;
+
+    function nextLine(){
+      if(!seqRunning) return;
+      if(li >= LINES.length){
+        seqRunning = false;
+        setTimeout(openModal, 400);
+        return;
+      }
+      var div = document.createElement('div');
+      div.className = 'ln';
+      var cursor = document.createElement('span');
+      cursor.className = 'cursor';
+      termEl.appendChild(div);
+      termEl.appendChild(cursor);
+      termEl.scrollTop = termEl.scrollHeight;
+
+      var text = LINES[li];
+      var ci = 0;
+
+      function typeChar(){
+        if(!seqRunning) return;
+        div.textContent = text.slice(0, ci + 1);
+        ci++;
+        if(ci % 3 === 0) tick();
+        termEl.scrollTop = termEl.scrollHeight;
+        var pct = Math.round(((li + ci/text.length) / LINES.length) * 100);
+        seqBar.style.width = pct + '%';
+        seqPct.textContent = pct + '%';
+        if(ci < text.length){
+          setTimeout(typeChar, 16 + Math.random()*22);
+        } else {
+          div.classList.add('dim');
+          cursor.remove();
+          li++;
+          setTimeout(nextLine, 240 + Math.random()*180);
+        }
+      }
+      typeChar();
+    }
+    nextLine();
+  }
+
+  /* ---------- MODAL ---------- */
+  var modal = document.getElementById('modal');
+  function openModal(){
+    modal.classList.add('active');
+    alarm();
+    vibrate([40,60,40]);
+  }
+  document.getElementById('btnProceed').addEventListener('click', function(){
+    modal.classList.remove('active');
+    flashAndReveal();
+  });
+
+  function flashAndReveal(){
+    document.body.classList.add('flash','shake');
+    beep(1200, 0.05, 'square', 0.05);
+    vibrate([15,30,15,30,60]);
+    setTimeout(function(){
+      document.body.classList.remove('flash','shake');
+      show('reveal');
+      chime(true);
+    }, 260);
+  }
+
+  /* ---------- REVEAL ---------- */
+  document.getElementById('btnAgain').addEventListener('click', function(){
+    seqRunning = false;
+    show('main');
+  });
+  document.getElementById('btnClose').addEventListener('click', function(){
+    seqRunning = false;
+    show('main');
+  });
+
+})();
+</script>
+</body>
+</html>
